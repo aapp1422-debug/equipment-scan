@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>สแกนยืม-คืนอุปกรณ์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#F5F7FB; --surface:#FFFFFF; --surface-2:#EDF1F9;
+    --ink:#0F1F3D; --ink-soft:#586A88; --line:#DCE3EF;
+    --primary:#1E3A8A; --primary-deep:#0F2557;
+    --good:#2E8B66; --good-bg:#E2F4EC;
+    --warn:#B9842C; --warn-bg:#F7EEDA;
+    --danger:#BC4A3C; --danger-bg:#F7E2DE;
+    --radius-card:16px; --radius-pill:999px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans Thai',system-ui,sans-serif;line-height:1.5;
+    display:flex;flex-direction:column;min-height:100vh;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  header{padding:16px 18px;background:var(--primary-deep);border-bottom:none;
+    display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+  header h1{margin:0;font-size:16px;font-weight:700;color:#FFFFFF;}
+  header .org{font-size:11.5px;color:#A9BEF0;}
+  main{flex:1;display:flex;flex-direction:column;padding:16px;gap:14px;max-width:520px;margin:0 auto;width:100%;}
+  .screen{display:none;flex-direction:column;gap:14px;flex:1;}
+  .screen.active{display:flex;}
+
+  #reader{width:100%;border-radius:var(--radius-card);overflow:hidden;background:#000;min-height:280px;}
+  .scan-hint{text-align:center;color:var(--ink-soft);font-size:13.5px;}
+  .manual-entry{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-card);padding:14px;}
+  .manual-entry label{display:block;font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;}
+  .manual-row{display:flex;gap:8px;}
+
+  input[type=text],select{
+    font-family:inherit;font-size:16px;padding:12px 12px;border:1px solid var(--line);border-radius:10px;
+    background:var(--bg);color:var(--ink);width:100%;
+  }
+  .field{margin-bottom:12px;}
+  label.f{display:block;font-size:12.5px;color:var(--ink-soft);margin-bottom:5px;}
+
+  button.primary{background:var(--primary);color:#fff;border:none;padding:14px 18px;border-radius:12px;
+    font-family:inherit;font-size:15.5px;font-weight:600;cursor:pointer;width:100%;}
+  button.primary:disabled{opacity:.55;}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);padding:12px 16px;
+    border-radius:12px;font-family:inherit;font-size:14.5px;cursor:pointer;width:100%;}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-card);padding:18px;}
+  .card h2{margin:0 0 4px;font-size:18px;color:var(--primary-deep);}
+  .card .sub{color:var(--ink-soft);font-size:13.5px;margin-bottom:14px;}
+  .pill{display:inline-block;padding:4px 12px;border-radius:var(--radius-pill);font-size:12.5px;font-weight:600;}
+  .pill.good{background:var(--good-bg);color:var(--good);}
+  .pill.warn{background:var(--warn-bg);color:var(--warn);}
+  .pill.danger{background:var(--danger-bg);color:var(--danger);}
+  .info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;}
+  .info-row:last-child{border-bottom:none;}
+  .info-row .k{color:var(--ink-soft);}
+  .center-msg{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:24px;}
+  .center-msg .emoji{font-size:44px;}
+  .center-msg h2{margin:0;font-size:19px;color:var(--primary-deep);}
+  .center-msg p{margin:0;color:var(--ink-soft);font-size:14px;}
+  .setup-note{background:var(--warn-bg);color:#7A5920;border-radius:10px;padding:12px 14px;font-size:13px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>สแกนยืม-คืนอุปกรณ์</h1>
+    <div class="org">รพ.สต.บ้านนาเพียงใหม่</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- SCAN SCREEN -->
+  <div class="screen active" id="screen-scan">
+    <div id="cameraWarn" style="display:none;" class="setup-note">เปิดกล้องไม่ได้ (อาจเป็นเพราะสิทธิ์การใช้กล้องของเบราว์เซอร์) — ใช้ช่องพิมพ์รหัสด้านล่างแทนได้</div>
+    <div id="reader"></div>
+    <p class="scan-hint">เล็งกล้องไปที่ QR/บาร์โค้ดบนตัวอุปกรณ์</p>
+    <div class="manual-entry">
+      <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;">
+      <button class="primary" style="width:100%;" id="btnPhoto">📷 ถ่ายรูป QR บนอุปกรณ์</button>
+      <div id="photoMsg" style="font-size:13px;color:#b45309;margin-top:6px;display:none;"></div>
+      <div id="photoReader" style="display:none;"></div>
+    </div>
+    <div class="manual-entry">
+      <label>หรือพิมพ์รหัสครุภัณฑ์เอง (กรณีสแกนไม่ได้)</label>
+      <div class="manual-row">
+        <input type="text" id="manualCode" placeholder="เช่น O2-003">
+        <button class="ghost" style="width:auto;white-space:nowrap;" id="btnManualLookup">ค้นหา</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT: AVAILABLE -> LOAN FORM -->
+  <div class="screen" id="screen-loan">
+    <div class="card">
+      <span class="pill good" id="loanStatusPill">พร้อมใช้</span>
+      <h2 id="loanEqName"></h2>
+      <div class="sub mono" id="loanEqCode"></div>
+      <div class="field"><label class="f">HN ผู้ป่วยที่จะยืม</label><input type="text" id="loanHn" placeholder="พิมพ์ HN"></div>
+      <div class="field"><label class="f">ผู้ให้ยืม (จนท.)</label><input type="text" id="loanStaff" placeholder="ชื่อ-สกุล จนท."></div>
+      <button class="primary" id="btnSubmitLoan">บันทึกการยืม</button>
+      <div style="height:8px;"></div>
+      <button class="ghost" id="btnCancelLoan">ยกเลิก / สแกนใหม่</button>
+    </div>
+  </div>
+
+  <!-- RESULT: BORROWED -> RETURN FORM -->
+  <div class="screen" id="screen-return">
+    <div class="card">
+      <span class="pill warn">ถูกยืมอยู่</span>
+      <h2 id="retEqName"></h2>
+      <div class="sub mono" id="retEqCode"></div>
+      <div class="info-row"><span class="k">ผู้ป่วย</span><span id="retPatientName"></span></div>
+      <div class="info-row"><span class="k">HN</span><span class="mono" id="retHn"></span></div>
+      <div class="info-row"><span class="k">วันที่ยืม</span><span class="mono" id="retLoanDate"></span></div>
+      <div class="info-row"><span class="k">ยืมมาแล้ว</span><span id="retDays"></span></div>
+      <div style="height:6px;"></div>
+      <div class="field"><label class="f">สภาพอุปกรณ์เมื่อคืน</label>
+        <select id="retCondition">
+          <option>ปกติ พร้อมใช้ต่อ</option><option>ต้องทำความสะอาด</option>
+          <option>ชำรุด ต้องซ่อม</option><option>ชำรุด จำหน่ายออก</option>
+        </select>
+      </div>
+      <button class="primary" id="btnSubmitReturn">ยืนยันรับคืน</button>
+      <div style="height:8px;"></div>
+      <button class="ghost" id="btnCancelReturn">ยกเลิก / สแกนใหม่</button>
+    </div>
+  </div>
+
+  <!-- NOT FOUND -->
+  <div class="screen" id="screen-notfound">
+    <div class="center-msg">
+      <div class="emoji">🔍</div>
+      <h2>ไม่พบอุปกรณ์รหัสนี้</h2>
+      <p id="notfoundCode" class="mono"></p>
+      <button class="primary" id="btnRetryNotfound" style="max-width:260px;">สแกนใหม่</button>
+    </div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="screen" id="screen-success">
+    <div class="center-msg">
+      <div class="emoji">✅</div>
+      <h2 id="successTitle">บันทึกเรียบร้อย</h2>
+      <p id="successDetail"></p>
+      <button class="primary" id="btnScanNext" style="max-width:260px;">สแกนชิ้นถัดไป</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// injected server-side by Code.gs — no manual setup needed
+// ค่าเชื่อมต่อ: อ่านจากลิงก์ (#u=...&t=...) แล้วเก็บในเครื่อง ไม่ฝังโทเคนไว้ในไฟล์
+(function(){
+  try{
+    const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+    if(h.get('u') && h.get('t')){
+      localStorage.setItem('eq_api_url', h.get('u'));
+      localStorage.setItem('eq_token', h.get('t'));
+      history.replaceState(null, '', location.pathname);
+    }
+  }catch(e){}
+})();
+let API_URL = '', APP_TOKEN = '';
+try{ API_URL = localStorage.getItem('eq_api_url') || ''; APP_TOKEN = localStorage.getItem('eq_token') || ''; }catch(e){}
+if(!API_URL || !APP_TOKEN){
+  document.addEventListener('DOMContentLoaded', () => {
+    const u = prompt('วางลิงก์ Web App (ลงท้าย /exec)');
+    const t = u ? prompt('ใส่รหัส APP_TOKEN') : null;
+    if(u && t){
+      try{ localStorage.setItem('eq_api_url', u.trim()); localStorage.setItem('eq_token', t.trim()); }catch(e){}
+      location.reload();
+    }
+  });
+}
+
+const todayStr = () => new Date().toISOString().slice(0,10);
+function daysBetween(dateStr){
+  if(!dateStr) return 0;
+  const d = new Date(dateStr + 'T00:00:00');
+  const now = new Date(todayStr() + 'T00:00:00');
+  return Math.max(0, Math.round((now - d) / 86400000));
+}
+
+async function apiGet(action, params={}){
+  const qs = new URLSearchParams({ action, token: APP_TOKEN, ...params });
+  const res = await fetch(API_URL + '?' + qs.toString());
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  return data;
+}
+async function apiPost(action, payload={}){
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, token: APP_TOKEN, ...payload })
+  });
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  return data;
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+let currentEquipment = null;
+let currentActiveLoan = null;
+
+// ---------- scanner ----------
+let html5QrCode = null;
+let scannerRunning = false;
+
+async function startScanner(){
+  if(scannerRunning) return;
+  try{
+    html5QrCode = new Html5Qrcode('reader');
+    const cameras = await Html5Qrcode.getCameras();
+    if(!cameras || cameras.length === 0){ document.getElementById('cameraWarn').style.display = 'block'; return; }
+    const camId = cameras.find(c => /back|rear|environment/i.test(c.label))?.id || cameras[cameras.length-1].id;
+    await html5QrCode.start(
+      camId,
+      { fps: 10, qrbox: { width: 240, height: 240 } },
+      onScanSuccess,
+      () => {}
+    );
+    scannerRunning = true;
+    document.getElementById('cameraWarn').style.display = 'none';
+  }catch(err){
+    // camera unavailable (permissions, or no camera) — manual entry still works
+    document.getElementById('cameraWarn').style.display = 'block';
+    console.log('camera error', err);
+  }
+}
+async function stopScanner(){
+  if(html5QrCode && scannerRunning){
+    try{ await html5QrCode.stop(); await html5QrCode.clear(); }catch(e){}
+    scannerRunning = false;
+  }
+}
+async function onScanSuccess(decodedText){
+  await stopScanner();
+  handleCode(decodedText);
+}
+document.getElementById('btnPhoto').addEventListener('click', () => document.getElementById('photoInput').click());
+document.getElementById('photoInput').addEventListener('change', async (ev) => {
+  const f = ev.target.files && ev.target.files[0];
+  const msg = document.getElementById('photoMsg');
+  if(!f) return;
+  msg.style.display = 'none';
+  try{
+    await stopScanner();
+    const reader = new Html5Qrcode('photoReader');
+    const text = await reader.scanFile(f, false);
+    ev.target.value = '';
+    handleCode(text);
+  }catch(e){
+    ev.target.value = '';
+    msg.textContent = 'อ่าน QR จากรูปไม่ได้ — ลองถ่ายใหม่ให้ใกล้และชัดขึ้น หรือพิมพ์รหัสด้านล่าง';
+    msg.style.display = 'block';
+  }
+});
+document.getElementById('btnManualLookup').addEventListener('click', () => {
+  const code = document.getElementById('manualCode').value.trim();
+  if(code) handleCode(code);
+});
+
+async function handleCode(code){
+  try{
+    const result = await apiGet('findEquipmentByCode', { code });
+    currentEquipment = result.equipment;
+    currentActiveLoan = result.activeLoan;
+    if(currentActiveLoan){
+      document.getElementById('retEqName').textContent = currentEquipment.equipment_type;
+      document.getElementById('retEqCode').textContent = currentEquipment.asset_code || '';
+      document.getElementById('retPatientName').textContent = currentActiveLoan.patient_name || '-';
+      document.getElementById('retHn').textContent = currentActiveLoan.hn || '-';
+      document.getElementById('retLoanDate').textContent = currentActiveLoan.loan_date || '-';
+      document.getElementById('retDays').innerHTML = daysBetween(currentActiveLoan.loan_date) + ' วัน';
+      showScreen('screen-return');
+    } else {
+      document.getElementById('loanEqName').textContent = currentEquipment.equipment_type;
+      document.getElementById('loanEqCode').textContent = currentEquipment.asset_code || '';
+      document.getElementById('loanHn').value = '';
+      document.getElementById('loanStaff').value = '';
+      showScreen('screen-loan');
+    }
+  }catch(err){
+    document.getElementById('notfoundCode').textContent = code;
+    showScreen('screen-notfound');
+  }
+}
+
+document.getElementById('btnSubmitLoan').addEventListener('click', async () => {
+  const hn = document.getElementById('loanHn').value.trim();
+  if(!hn){ alert('กรุณากรอก HN ผู้ป่วย'); return; }
+  const btn = document.getElementById('btnSubmitLoan');
+  btn.disabled = true;
+  try{
+    await apiPost('createLoan', {
+      equipment_id: currentEquipment.equipment_id,
+      hn,
+      loan_date: todayStr(),
+      lender_staff: document.getElementById('loanStaff').value.trim()
+    });
+    document.getElementById('successTitle').textContent = 'บันทึกการยืมเรียบร้อย';
+    document.getElementById('successDetail').textContent = `${currentEquipment.equipment_type} → HN ${hn}`;
+    showScreen('screen-success');
+  }catch(err){ alert('บันทึกไม่สำเร็จ: ' + err.message); }
+  finally{ btn.disabled = false; }
+});
+document.getElementById('btnCancelLoan').addEventListener('click', resetToScan);
+
+document.getElementById('btnSubmitReturn').addEventListener('click', async () => {
+  const btn = document.getElementById('btnSubmitReturn');
+  btn.disabled = true;
+  try{
+    await apiPost('returnLoan', {
+      loan_id: currentActiveLoan.loan_id,
+      actual_return_date: todayStr(),
+      condition_on_return: document.getElementById('retCondition').value
+    });
+    document.getElementById('successTitle').textContent = 'บันทึกการรับคืนเรียบร้อย';
+    document.getElementById('successDetail').textContent = currentEquipment.equipment_type;
+    showScreen('screen-success');
+  }catch(err){ alert('บันทึกไม่สำเร็จ: ' + err.message); }
+  finally{ btn.disabled = false; }
+});
+document.getElementById('btnCancelReturn').addEventListener('click', resetToScan);
+document.getElementById('btnRetryNotfound').addEventListener('click', resetToScan);
+document.getElementById('btnScanNext').addEventListener('click', resetToScan);
+
+function resetToScan(){
+  currentEquipment = null; currentActiveLoan = null;
+  document.getElementById('manualCode').value = '';
+  showScreen('screen-scan');
+  startScanner();
+}
+
+// ---------- init ----------
+startScanner();
+</script>
+</body>
+</html>
